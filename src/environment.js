@@ -200,16 +200,19 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   const southDrive = makeRoxasBox(16, 0.08, 250, asphaltMat, 85, -125, 0.04);
   envGroup.add(southDrive);
 
-  // Padre Burgos Avenue (wide dual carriageway continuing east from Roxas Blvd to Finance Rd fork & beyond)
+  // 10KM-specific Padre Burgos east extension, Finance Road, Gen. Luna & Taft Ave
+  // (toggled visible only on 10KM so 5KM and 21KM have zero extra stray roads!)
+  const roads10kGroup = new THREE.Group();
+  envGroup.add(roads10kGroup);
+
   const padreBurgosLen = PB_FORK_OFFSET + 150;
   const padreBurgosRoad = makeRoxasBox(30, 0.08, padreBurgosLen, asphaltMat, S_KATIGBAK, padreBurgosLen * 0.5, 0.045);
   padreBurgosRoad.receiveShadow = true;
-  envGroup.add(padreBurgosRoad);
+  roads10kGroup.add(padreBurgosRoad);
 
-  // Planted median along Padre Burgos Avenue (split at Roxas junction & Gen. Luna)
   const pbMed1 = makeRoxasBox(2.6, 0.22, 540, medianMat, S_KATIGBAK, 310, 0.11);
   const pbMed2 = makeRoxasBox(2.6, 0.22, 95, medianMat, S_KATIGBAK, PB_GEN_LUNA_OFFSET + 62, 0.11);
-  envGroup.add(pbMed1, pbMed2);
+  roads10kGroup.add(pbMed1, pbMed2);
 
   // Finance Road (forking 18° right from Padre Burgos Ave toward Taft Ave)
   const finMeta = ROUTE_10KM.financeMeta;
@@ -224,20 +227,18 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
     new THREE.BoxGeometry(FINANCE_LEN + 155, 0.095, 30),
     asphaltMat
   );
-  financeRoad.position.set(finCenter.x, 0.018, finCenter.z);
+  financeRoad.position.set(finCenter.x, 0.045, finCenter.z);
   financeRoad.rotation.y = finRoadYaw;
   financeRoad.receiveShadow = true;
-  envGroup.add(financeRoad);
+  roads10kGroup.add(financeRoad);
 
-  // Finance Road U-turn turnaround apron (extra wide asphalt at U-turn)
   const finApron = new THREE.Mesh(
     new THREE.CylinderGeometry(18, 18, 0.095, 24),
     asphaltMat
   );
-  finApron.position.set(finMeta.uturnCenter.x, 0.018, finMeta.uturnCenter.z);
-  envGroup.add(finApron);
+  finApron.position.set(finMeta.uturnCenter.x, 0.045, finMeta.uturnCenter.z);
+  roads10kGroup.add(finApron);
 
-  // Finance Road planted center median (stops cleanly before U-turn!)
   const finMedLen = FINANCE_LEN - 55;
   const finMedCenter = finMeta.finOutStart
     .clone()
@@ -249,18 +250,16 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   );
   finMedian.position.set(finMedCenter.x, 0.11, finMedCenter.z);
   finMedian.rotation.y = finRoadYaw;
-  envGroup.add(finMedian);
+  roads10kGroup.add(finMedian);
 
-  // General Luna Street (crossing Padre Burgos Ave near Hydration station)
-  const genLunaSt = makeRoxasBox(760, 0.075, 16, asphaltMat, S_KATIGBAK - 60, PB_GEN_LUNA_OFFSET, 0.009);
-  envGroup.add(genLunaSt);
+  const genLunaSt = makeRoxasBox(360, 0.075, 16, asphaltMat, S_KATIGBAK + 180, PB_GEN_LUNA_OFFSET, 0.035);
+  roads10kGroup.add(genLunaSt);
 
-  // Taft Avenue (major N-S avenue just past Finance Road U-turn)
   const taftPos = finMeta.uturnCenter.clone().addScaledVector(finMeta.dirOut, 65);
   const taftAve = new THREE.Mesh(new THREE.BoxGeometry(24, 0.08, 1400), asphaltMat);
-  taftAve.position.set(taftPos.x, 0.01, taftPos.z + 180);
+  taftAve.position.set(taftPos.x, 0.035, taftPos.z + 180);
   taftAve.rotation.y = ROXAS_ANGLE_RAD - 0.12;
-  envGroup.add(taftAve);
+  roads10kGroup.add(taftAve);
 
   // Major East-West Cross Streets east of Roxas Blvd (Kalaw, UN Ave, Pedro Gil, Quirino Ave, P. Ocampo)
   const crossStreetsS = [160, 520, 960, 1480, S_UTURN];
@@ -270,9 +269,9 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
     envGroup.add(street);
   }
 
-  // Parallel inland avenues (M. H. del Pilar / Mabini / Maria Orosa)
+  // Parallel inland avenues in Ermita/Malate ONLY south of Rizal Park (s = +170..+2300 — never cutting through Rizal Park or Intramuros!)
   for (const aveOff of [125, 255, 410]) {
-    const ave = makeRoxasBox(2900, 0.07, 14, asphaltMat, 950, aveOff, 0.006);
+    const ave = makeRoxasBox(2130, 0.07, 14, asphaltMat, 1235, aveOff, 0.006);
     envGroup.add(ave);
   }
 
@@ -686,6 +685,7 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   // 8. Swappable Route Ribbon + Directional Chevrons
   // ---------------------------------------------------------------------------
   function setActiveRoute(route) {
+    roads10kGroup.visible = route.id === '10km';
     loop21Roadbed.visible = route.id === '21km';
     while (routeOverlayGroup.children.length > 0) {
       const child = routeOverlayGroup.children.pop();

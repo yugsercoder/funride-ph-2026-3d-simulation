@@ -34,6 +34,14 @@ const BI_NORTH = toWorld(-1315, 200);
 const biDir = BI_NORTH.clone().sub(BI_SOUTH).normalize();
 const biRight = new THREE.Vector3(-biDir.z, 0, biDir.x).normalize();
 
+// Exact BYD Hydration Station anchor on the straight of Padre Burgos Ave (Step 15, west/plaza side)
+const bydRoadA = toWorld(-880, 580);
+const bydRoadB = toWorld(-590, 665);
+const bydRoadDir = bydRoadB.clone().sub(bydRoadA).normalize();
+const bydWestNormal = new THREE.Vector3(-bydRoadDir.z, 0, bydRoadDir.x).normalize(); // points west/right of Step 15 SB lane
+const bydCenterOnRoad = bydRoadA.clone().lerp(bydRoadB, 0.55);
+const bydStationPos = bydCenterOnRoad.clone().addScaledVector(bydWestNormal, 20.5);
+
 export const LANDMARKS_21KM = {
   jonesSouth: JONES_SOUTH,
   jonesNorth: JONES_NORTH,
@@ -42,6 +50,8 @@ export const LANDMARKS_21KM = {
   binondoChurch: toWorld(-1820, 195),
   hydJones: toWorld(-995, 576),
   hydJonesYaw: Math.atan2(jonesDir.x, jonesDir.z),
+  bydStation: bydStationPos,
+  bydStationYaw: Math.atan2(bydRoadDir.x, bydRoadDir.z),
   andaCircle: toWorld(S_ANDA_CIRCLE, 0),
   quirinoUturn: toWorld(S_QUIRINO_UTURN, 0)
 };
@@ -107,6 +117,7 @@ function build21KMRoute() {
 
     // --- SECTION B: INTRAMUROS – BINONDO LOOP (Steps 15–27) ---
     { pos: toWorld(-880, 580), radius: 55, tag: 'step15' },
+    { pos: bydCenterOnRoad, radius: 40, tag: 'bydHydration' },
     { pos: toWorld(-590, 665), radius: 90 },
     { pos: toWorld(-385, 555), radius: 45, tag: 'step16' },
     { pos: toWorld(-430, 455), radius: 18, tag: 'step17' },
@@ -187,6 +198,7 @@ function build21KMRoute() {
     { id: 'step13', text: 'Step 13 · Left onto Dasmariñas Street', color: '#1d4ed8' },
     { id: 'step14', text: 'Step 14 · Right onto Jones Bridge Southbound', color: '#1d4ed8' },
     { id: 'step15', text: 'Step 15 · Southbound along Padre Burgos Ave', color: '#1d4ed8' },
+    { id: 'bydHydration', text: 'BYD Recharging Hub · Hydration Station (National Museum)', color: '#0284c7' },
     { id: 'step16', text: 'Step 16 · Right onto General Luna St (Intramuros)', color: '#1d4ed8' },
     { id: 'step17', text: 'Step 17 · Right onto Muralla Street (Intramuros)', color: '#1d4ed8' },
     { id: 'step18', text: 'Step 18 · Right onto Lawton Road', color: '#1d4ed8' },
@@ -325,6 +337,7 @@ function build21KMRoute() {
         heading: 'B. INTRAMUROS – BINONDO LOOP',
         items: [
           stepItem(15, 'Proceed straight towards Padre Burgos Avenue.'),
+          { checkpoint: 'bydHydration', badge: '⚡', type: 'hydration', text: 'BYD Recharging Hub — Hydration Station (Padre Burgos / National Museum).', meta: `${fmtKm('bydHydration')} · V2L Powered Lights & Water Dispensers` },
           stepItem(16, 'Turn right to General Luna Street.'),
           stepItem(17, 'Turn right to Muralla Street.'),
           stepItem(18, 'Turn right to Lawton Road.'),
@@ -360,6 +373,7 @@ function build21KMRoute() {
       { pct: (tagDistances.step3 / totalLength) * 100, cls: 'tick-uturn', title: 'P. Ocampo U-Turn' },
       { pct: (tagDistances.hyd21k / totalLength) * 100, cls: 'tick-hyd', title: '21KM Hydration (Jones Bridge)' },
       { pct: (tagDistances.step10 / totalLength) * 100, cls: 'tick-turn', title: 'Binondo Church' },
+      { pct: (tagDistances.bydHydration / totalLength) * 100, cls: 'tick-hyd', title: 'BYD Recharging Hub (Padre Burgos)' },
       { pct: (tagDistances.step20 / totalLength) * 100, cls: 'tick-turn', title: 'Intramuros–Binondo Bridge' },
       { pct: (tagDistances.step32 / totalLength) * 100, cls: 'tick-uturn', title: 'Anda Circle U-Turn' },
       { pct: (tagDistances.step34 / totalLength) * 100, cls: 'tick-uturn', title: 'Quirino Ave Final U-Turn' },
@@ -369,6 +383,7 @@ function build21KMRoute() {
       { id: 'step1', color: '#0d9488' },
       { id: 'step3', color: '#0f172a' },
       { id: 'hyd21k', color: '#0284c7' },
+      { id: 'bydHydration', color: '#06b6d4' },
       { id: 'step10', color: '#1d4ed8' },
       { id: 'step32', color: '#0f172a' },
       { id: 'step34', color: '#0f172a' },

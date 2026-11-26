@@ -19,13 +19,15 @@ import {
 import { ROUTE_5KM } from './route5km.js';
 import { LANDMARKS_21KM } from './route21km.js';
 
-// Preload official FunRide PH logo (blue version works crisply on white plaques)
+// Preload official FunRide PH logo & BYD logo
 const frphLogoImg = new Image();
 frphLogoImg.src = './logos/frph-blue.png';
+const bydLogoImg = new Image();
+bydLogoImg.src = './logos/byd.png';
 const logoLoadCallbacks = [];
-frphLogoImg.onload = () => {
-  logoLoadCallbacks.forEach((fn) => fn());
-};
+const notifyLogoLoaded = () => logoLoadCallbacks.forEach((fn) => fn());
+frphLogoImg.onload = notifyLogoLoaded;
+bydLogoImg.onload = notifyLogoLoaded;
 
 function roundRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -258,6 +260,301 @@ function createDirectionalSign(title, subtitle) {
 }
 
 /**
+ * Create the official BYD Recharging Hub Hydration Station (21KM ONLY)
+ * Faithful to "BYD FunridePH 2026 _ Proposed Layout 111126.pdf" (Pages 12–14):
+ *   - Textured grey ground pad
+ *   - Lime-yellow BYD Seagull EV hatchback (V2L power source)
+ *   - Black aluminum truss "RECHARGING HUB" arch on yellow/black hazard-striped platform
+ *   - Twin silver standing water dispensers underneath the arch
+ *   - Black-draped hydration table stocked with water/electrolyte bottles
+ *   - Twin tall white L-shaped V2L light poles with black LED floodlights
+ *   - Twin tall dark-charcoal vertical BYD banner flags on X-frame bases
+ * Local +X faces the cyclists on Padre Burgos Ave; local Z runs parallel to the road.
+ */
+function createBydHydrationStation() {
+  const group = new THREE.Group();
+
+  // 1. Textured Concrete/Gravel Ground Pad (19m along road x 7m deep)
+  const padMat = new THREE.MeshLambertMaterial({ color: 0x8e8c82 });
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.14, 19.2), padMat);
+  pad.position.set(0, 0.09, 0);
+  group.add(pad);
+
+  // 2. Lime-Yellow BYD Seagull EV Hatchback (Left side, z = -4.0, angled slightly toward road)
+  const car = new THREE.Group();
+  const seagullYellow = new THREE.MeshLambertMaterial({ color: 0xd9e856 });
+  const carGlass = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+  const carBlack = new THREE.MeshLambertMaterial({ color: 0x111827 });
+  const wheelMat = new THREE.MeshLambertMaterial({ color: 0x1f2937 });
+  const rimMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 });
+  const headLightMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3 });
+  const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+  // Lower body & black side skirt
+  const lowerBody = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.72, 4.15), seagullYellow);
+  lowerBody.position.set(0, 0.76, 0);
+  const sideSkirt = new THREE.Mesh(new THREE.BoxGeometry(1.99, 0.20, 3.85), carBlack);
+  sideSkirt.position.set(0, 0.44, 0);
+  // Sloped hatchback cabin + dark greenhouse windows
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.62, 2.35), seagullYellow);
+  cabin.position.set(0, 1.38, -0.18);
+  const sideWin = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.44, 2.10), carGlass);
+  sideWin.position.set(0, 1.36, -0.18);
+  const frontWindshield = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.56, 0.12), carGlass);
+  frontWindshield.position.set(0, 1.32, 1.06);
+  frontWindshield.rotation.x = -0.58;
+  const rearGlass = new THREE.Mesh(new THREE.BoxGeometry(1.60, 0.50, 0.12), carGlass);
+  rearGlass.position.set(0, 1.34, -1.42);
+  rearGlass.rotation.x = 0.42;
+  // Front black bumper grille + headlights + rear LED lightbar
+  const frontGrille = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.28, 0.10), carBlack);
+  frontGrille.position.set(0, 0.56, 2.08);
+  for (const sx of [-0.66, 0.66]) {
+    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.14, 0.08), headLightMat);
+    hl.position.set(sx, 0.86, 2.07);
+    car.add(hl);
+  }
+  const tailBar = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.12, 0.08), tailLightMat);
+  tailBar.position.set(0, 0.94, -2.07);
+
+  // 4 Alloy Wheels
+  const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 16);
+  wheelGeo.rotateZ(Math.PI / 2);
+  const hubGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.26, 12);
+  hubGeo.rotateZ(Math.PI / 2);
+  for (const [wx, wz] of [[-0.96, 1.28], [0.96, 1.28], [-0.96, -1.28], [0.96, -1.28]]) {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.position.set(wx, 0.36, wz);
+    const h = new THREE.Mesh(hubGeo, rimMat);
+    h.position.set(wx, 0.36, wz);
+    car.add(w, h);
+  }
+  car.add(lowerBody, sideSkirt, cabin, sideWin, frontWindshield, rearGlass, frontGrille, tailBar);
+  car.position.set(0.1, 0.16, -4.1);
+  car.rotation.y = Math.PI * 0.14; // slightly angled outward toward cyclists like PDF page 12-13
+  group.add(car);
+
+  // 3. "RECHARGING HUB" Platform with Yellow/Black Hazard Stripes + Black Truss Arch + Twin Water Dispensers
+  const hubGroup = new THREE.Group();
+  const hazCanvas = document.createElement('canvas');
+  hazCanvas.width = 512;
+  hazCanvas.height = 64;
+  const hctx = hazCanvas.getContext('2d');
+  hctx.fillStyle = '#facc15';
+  hctx.fillRect(0, 0, 512, 64);
+  hctx.fillStyle = '#111827';
+  for (let x = -64; x < 576; x += 32) {
+    hctx.beginPath();
+    hctx.moveTo(x, 0);
+    hctx.lineTo(x + 16, 0);
+    hctx.lineTo(x + 40, 64);
+    hctx.lineTo(x + 24, 64);
+    hctx.closePath();
+    hctx.fill();
+  }
+  const hazTex = new THREE.CanvasTexture(hazCanvas);
+  hazTex.colorSpace = THREE.SRGBColorSpace;
+  hazTex.wrapS = THREE.RepeatWrapping;
+  hazTex.repeat.set(3, 1);
+
+  const platTopMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+  const platEdgeMat = new THREE.MeshBasicMaterial({ map: hazTex });
+  const platMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(2.6, 0.24, 4.4),
+    [platEdgeMat, platEdgeMat, platTopMat, platTopMat, platEdgeMat, platEdgeMat]
+  );
+  platMesh.position.set(0, 0.26, 0);
+  hubGroup.add(platMesh);
+
+  // Two black aluminum truss columns
+  const trussMat = new THREE.MeshLambertMaterial({ color: 0x18181b });
+  for (const tz of [-1.75, 1.75]) {
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.32, 3.6, 0.32), trussMat);
+    col.position.set(0, 2.18, tz);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.7), trussMat);
+    foot.position.set(0, 0.44, tz);
+    hubGroup.add(col, foot);
+  }
+  const topBeam = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 3.8), trussMat);
+  topBeam.position.set(0, 3.85, 0);
+  hubGroup.add(topBeam);
+
+  // Glowing Cyan-Bordered "RECHARGING HUB" Header Sign
+  const hubCanvas = document.createElement('canvas');
+  hubCanvas.width = 1024;
+  hubCanvas.height = 192;
+  const bctx = hubCanvas.getContext('2d');
+  bctx.fillStyle = '#38bdf8';
+  roundRectPath(bctx, 0, 0, 1024, 192, 32);
+  bctx.fill();
+  bctx.fillStyle = '#ffffff';
+  roundRectPath(bctx, 14, 14, 996, 164, 22);
+  bctx.fill();
+  bctx.fillStyle = '#0f172a';
+  bctx.font = '800 84px Inter, Arial, sans-serif';
+  bctx.textAlign = 'left';
+  bctx.textBaseline = 'middle';
+  bctx.fillText('RECHARGING HUB', 44, 98);
+  // Diagonal cyan accent bars on right (matching PDF page 12-13)
+  bctx.fillStyle = '#38bdf8';
+  for (let i = 0; i < 4; i++) {
+    const sx = 825 + i * 38;
+    bctx.beginPath();
+    bctx.moveTo(sx + 20, 30);
+    bctx.lineTo(sx + 38, 30);
+    bctx.lineTo(sx + 18, 162);
+    bctx.lineTo(sx, 162);
+    bctx.closePath();
+    bctx.fill();
+  }
+  const hubTex = new THREE.CanvasTexture(hubCanvas);
+  hubTex.colorSpace = THREE.SRGBColorSpace;
+  const hubSideMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  const hubFaceMat = new THREE.MeshBasicMaterial({ map: hubTex });
+  const hubSign = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.78, 4.4),
+    [hubFaceMat, hubFaceMat, hubSideMat, hubSideMat, hubSideMat, hubSideMat]
+  );
+  hubSign.position.set(0.18, 3.92, 0);
+  hubGroup.add(hubSign);
+
+  // Twin Silver-Grey Standing Water Dispensers underneath the arch
+  const dispMat = new THREE.MeshLambertMaterial({ color: 0xb4bcc4 });
+  const dispDark = new THREE.MeshLambertMaterial({ color: 0x334155 });
+  const dispAccent = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+  for (const dz of [-0.46, 0.46]) {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.75, 0.66), dispMat);
+    body.position.set(0, 1.26, dz);
+    const recess = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, 0.42), dispDark);
+    recess.position.set(0.28, 1.48, dz);
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.32), dispAccent);
+    led.position.set(0.32, 1.82, dz);
+    hubGroup.add(body, recess, led);
+  }
+  hubGroup.position.set(-0.6, 0.0, 1.2);
+  group.add(hubGroup);
+
+  // 4. Black-Draped Hydration Table with Rows of Blue & Orange Bottles (Right side, z = +5.6)
+  const tableGroup = new THREE.Group();
+  const clothMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
+  const tableMesh = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.05, 3.1), clothMat);
+  tableMesh.position.set(0, 0.68, 0);
+  tableGroup.add(tableMesh);
+
+  const bottleBlue = new THREE.MeshLambertMaterial({ color: 0x0284c7 });
+  const bottleOrange = new THREE.MeshLambertMaterial({ color: 0xf97316 });
+  const bottleGeo = new THREE.CylinderGeometry(0.06, 0.065, 0.32, 6);
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 10; col++) {
+      const b = new THREE.Mesh(bottleGeo, row === 0 ? bottleBlue : bottleOrange);
+      b.position.set(0.22 - row * 0.42, 1.36, -1.25 + col * 0.28);
+      tableGroup.add(b);
+    }
+  }
+  tableGroup.position.set(1.2, 0, 5.5);
+  group.add(tableGroup);
+
+  // 5. Twin Tall White L-Shaped V2L Light Poles with Dual Black LED Floodlights
+  const whitePoleMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+  const lampHeadMat = new THREE.MeshLambertMaterial({ color: 0x111827 });
+  const lampGlowMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3 });
+
+  function makeLightPole(lx, lz, armDirX) {
+    const pGroup = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.12, 0.85), whitePoleMat);
+    base.position.set(0, 0.22, 0);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.14, 5.4, 0.14), whitePoleMat);
+    mast.position.set(0, 2.95, 0);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.14), whitePoleMat);
+    arm.position.set(armDirX * 0.75, 5.6, 0);
+    pGroup.add(base, mast, arm);
+    for (const fz of [-0.36, 0.36]) {
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.24), lampHeadMat);
+      head.position.set(armDirX * 1.25, 5.42, fz);
+      const lens = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.20), lampGlowMat);
+      lens.position.set(armDirX * 1.25, 5.31, fz);
+      pGroup.add(head, lens);
+    }
+    pGroup.position.set(lx, 0, lz);
+    return pGroup;
+  }
+  group.add(makeLightPole(2.1, -8.3, -1));
+  group.add(makeLightPole(-2.1, 7.6, 1));
+
+  // 6. Twin Tall Dark-Charcoal BYD Vertical Banner Flags (with official white BYD logo)
+  const flagCanvas = document.createElement('canvas');
+  flagCanvas.width = 256;
+  flagCanvas.height = 640;
+  const fctx = flagCanvas.getContext('2d');
+  const flagTex = new THREE.CanvasTexture(flagCanvas);
+  flagTex.colorSpace = THREE.SRGBColorSpace;
+
+  const drawBydFlag = () => {
+    fctx.fillStyle = '#2d3748';
+    fctx.fillRect(0, 0, 256, 640);
+    fctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    fctx.lineWidth = 6;
+    fctx.strokeRect(8, 8, 240, 624);
+
+    if (bydLogoImg.complete && bydLogoImg.naturalWidth > 0) {
+      // Render BYD.png rotated 90° vertically in pure white on charcoal flag (matching PDF!)
+      const off = document.createElement('canvas');
+      off.width = bydLogoImg.naturalWidth;
+      off.height = bydLogoImg.naturalHeight;
+      const octx = off.getContext('2d');
+      octx.drawImage(bydLogoImg, 0, 0);
+      octx.globalCompositeOperation = 'source-in';
+      octx.fillStyle = '#ffffff';
+      octx.fillRect(0, 0, off.width, off.height);
+
+      fctx.save();
+      fctx.translate(128, 320);
+      fctx.rotate(Math.PI / 2);
+      const scale = 320 / off.width;
+      const dw = off.width * scale;
+      const dh = off.height * scale;
+      fctx.drawImage(off, -dw / 2, -dh / 2, dw, dh);
+      fctx.restore();
+    } else {
+      fctx.save();
+      fctx.translate(128, 320);
+      fctx.rotate(Math.PI / 2);
+      fctx.fillStyle = '#ffffff';
+      fctx.font = '800 92px Inter, Arial, sans-serif';
+      fctx.textAlign = 'center';
+      fctx.textBaseline = 'middle';
+      fctx.fillText('BYD', 0, 0);
+      fctx.restore();
+    }
+    flagTex.needsUpdate = true;
+  };
+  drawBydFlag();
+  if (!bydLogoImg.complete) logoLoadCallbacks.push(drawBydFlag);
+
+  const flagMat = new THREE.MeshBasicMaterial({ map: flagTex, side: THREE.DoubleSide });
+  const xBaseMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 });
+  function makeBydFlag(fx, fz) {
+    const fg = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 4.9, 6), xBaseMat);
+    pole.position.set(0, 2.55, 0);
+    const bar1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.08), xBaseMat);
+    bar1.position.set(0, 0.2, 0);
+    const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 1.1), xBaseMat);
+    bar2.position.set(0, 0.2, 0);
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 3.4), flagMat);
+    banner.position.set(0, 3.15, 0.68);
+    banner.rotation.y = Math.PI / 2;
+    fg.add(pole, bar1, bar2, banner);
+    fg.position.set(fx, 0, fz);
+    return fg;
+  }
+  group.add(makeBydFlag(-1.9, -7.8));
+  group.add(makeBydFlag(1.2, 8.2));
+
+  return group;
+}
+
+/**
  * Build swappable 3D race infrastructure & projected 2D HTML map pills for 5KM and 10KM.
  */
 export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, initialRoute = ROUTE_5KM) {
@@ -385,6 +682,22 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
       hyd21.rotation.y = LANDMARKS_21KM.hydJonesYaw;
       group.add(hyd21);
 
+      // 21KM ONLY: Official BYD Recharging Hub Hydration Station (Padre Burgos Ave / Gomburza Plaza across from National Museum)
+      const bydStation = createBydHydrationStation();
+      bydStation.scale.setScalar(2.25);
+      bydStation.position.copy(LANDMARKS_21KM.bydStation);
+      bydStation.rotation.y = LANDMARKS_21KM.bydStationYaw;
+      group.add(bydStation);
+
+      // Subtle Gomburza tiled plaza & lawn framing the BYD Hydration Station (matching Google Maps)
+      const gomburzaPlaza = new THREE.Mesh(
+        new THREE.BoxGeometry(30, 0.04, 64),
+        new THREE.MeshLambertMaterial({ color: 0xd6d3c9 })
+      );
+      gomburzaPlaza.position.copy(LANDMARKS_21KM.bydStation).add(new THREE.Vector3(0, 0.025, 0));
+      gomburzaPlaza.rotation.y = LANDMARKS_21KM.bydStationYaw;
+      group.add(gomburzaPlaza);
+
       // 21KM U-Turn at Anda Circle (positioned cleanly on straight Bonifacio Drive south of roundabout so pillars sit on sidewalks!)
       const andaUturn = createRaceGantry('U-TURN · ANDA CIRCLE', 'RETURN SOUTHBOUND ROXAS BLVD', '#0f172a', '#2563eb', 28);
       andaUturn.position.copy(toWorld(S_ANDA_CIRCLE + 34, 0, 0));
@@ -469,6 +782,7 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
         { checkpoint: 'step1', worldPos: toWorld(S_START, LANE_OFFSET_SB + 46, 15), html: `<div class="label-pill start">START · KM 0</div>` },
         { checkpoint: 'step3', worldPos: toWorld(S_UTURN + 46, 0, 16), html: `<div class="label-pill uturn">U-TURN · P. OCAMPO</div>` },
         { checkpoint: 'hyd21k', worldPos: LANDMARKS_21KM.hydJones.clone().add(new THREE.Vector3(55, 18, 0)), html: `<div class="label-pill hydration">💧 HYDRATION · 21KM</div>` },
+        { checkpoint: 'bydHydration', worldPos: LANDMARKS_21KM.bydStation.clone().add(new THREE.Vector3(0, 12, 0)), html: `<div class="label-pill hydration">⚡ BYD RECHARGING HUB</div>` },
         { checkpoint: 'step10', worldPos: LANDMARKS_21KM.binondoChurch.clone().add(new THREE.Vector3(0, 44, 0)), html: `<div class="label-pill uturn">BINONDO CHURCH</div>` },
         { checkpoint: 'step32', worldPos: LANDMARKS_21KM.andaCircle.clone().add(new THREE.Vector3(-45, 22, 0)), html: `<div class="label-pill uturn">U-TURN · ANDA CIRCLE</div>` },
         { checkpoint: 'step34', worldPos: LANDMARKS_21KM.quirinoUturn.clone().add(new THREE.Vector3(-55, 18, 0)), html: `<div class="label-pill uturn">21KM LAST U-TURN · QUIRINO AVE</div>` },
