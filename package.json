@@ -1,0 +1,17 @@
+{
+  "name": "funride-ph-2026-route-simulation",
+  "version": "1.0.0",
+  "description": "FunRide PH 2026 — 5KM, 10KM & 21KM Cycling Route Interactive 3D Simulation",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "dependencies": {
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

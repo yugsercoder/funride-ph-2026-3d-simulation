@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FunRide PH 2026 — 5KM, 10KM &amp; 21KM Cycling Route 3D Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 3D WebGL Viewport -->
+    <div id="canvas-container"></div>
+
+    <!-- Projected 3D Map Labels -->
+    <div id="labels-layer"></div>
+
+    <!-- Top-Left Event Header, Route Switcher & Live Telemetry -->
+    <header class="hud-card header-card">
+      <div class="header-top-row">
+        <img src="./logos/frph-blue.png" alt="FunRide PH Logo" class="header-logo" />
+        <div class="header-titles">
+          <div class="brand-stripes">
+            <span class="stripe stripe-blue"></span>
+            <span class="stripe stripe-red"></span>
+            <span class="stripe stripe-yellow"></span>
+          </div>
+          <div class="header-kicker">FUNRIDE PH 2026 · SATURDAY, DEC 19, 2026</div>
+          <h1 class="header-title">
+            <span id="header-route-title">5KM CYCLING ROUTE</span>
+            <span class="badge-3d">3D SIM</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Unified Route Selector (5KM / 10KM / 21KM) -->
+      <div class="route-switcher" role="tablist" aria-label="Select Cycling Route">
+        <button class="route-tab active" data-route="5km" role="tab" aria-selected="true">
+          <span class="route-dot dot-5km"></span>
+          <span>5KM</span>
+        </button>
+        <button class="route-tab" data-route="10km" role="tab" aria-selected="false">
+          <span class="route-dot dot-10km"></span>
+          <span>10KM</span>
+        </button>
+        <button class="route-tab" data-route="21km" role="tab" aria-selected="false">
+          <span class="route-dot dot-21km"></span>
+          <span>21KM</span>
+        </button>
+      </div>
+
+      <div class="header-subtitle" id="header-route-subtitle">
+        Manila – Roxas Boulevard – P. Ocampo U-turn – Roxas Boulevard – Quirino Grandstand
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="tele-item">
+          <span class="tele-label">DISTANCE</span>
+          <span class="tele-value" id="tele-distance">0.00 <small>/ 5.00 km</small></span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-label">PROGRESS</span>
+          <span class="tele-value" id="tele-progress">0%</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-label">HEADING</span>
+          <span class="tele-value" id="tele-heading">SSE 158°</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-label">EST. TIME</span>
+          <span class="tele-value" id="tele-time">00:00</span>
+        </div>
+      </div>
+
+      <div class="current-segment-bar">
+        <span class="segment-dot" id="segment-dot"></span>
+        <span id="current-segment-text">Step 1 · Start at KM 0, Quirino Grandstand</span>
+      </div>
+    </header>
+
+    <!-- Top-Right Compass & Quick Toggles -->
+    <div class="top-right-controls">
+      <div class="compass-widget" title="North indicator (rotates with camera)">
+        <span class="compass-n">N</span>
+        <div class="compass-needle" id="compass-needle">
+          <span class="needle-north"></span>
+          <span class="needle-south"></span>
+        </div>
+      </div>
+      <button id="btn-toggle-panel" class="icon-pill-btn" title="Toggle Route Guide Panel">
+        Route Guide
+      </button>
+    </div>
+
+    <!-- Right Collapsible Route Description & Legend Panel (Populated dynamically per route) -->
+    <aside class="hud-card route-panel" id="route-panel">
+      <div class="panel-section event-meta" id="panel-event-meta"></div>
+
+      <div class="panel-section">
+        <h2 class="panel-heading">ROUTE DESCRIPTION</h2>
+        <div id="route-guide-content"></div>
+      </div>
+
+      <div class="panel-section legend-section">
+        <h2 class="panel-heading">LEGEND</h2>
+        <div class="legend-grid">
+          <div class="legend-row">
+            <span class="legend-line" id="legend-route-line"></span>
+            <span id="legend-route-label">5KM route (yellow path + arrows)</span>
+          </div>
+          <div class="legend-row">
+            <span class="pill-mini pill-start">START</span>
+            <span class="pill-mini pill-finish">FINISH</span>
+            <span class="pill-mini pill-uturn">U-TURN</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-drop">💧</span>
+            <span id="legend-hydration-label">Hydration station (PH Navy)</span>
+          </div>
+          <div class="legend-row">
+            <span class="step-num-mini">3</span>
+            <span>Click any step above to jump camera</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Bottom-Left Synchronized 2D Mini-Map -->
+    <div class="hud-card minimap-card" id="minimap-card">
+      <div class="minimap-header">
+        <span id="minimap-title">5KM ROUTE MAP</span>
+        <span class="minimap-scale">500 m</span>
+      </div>
+      <canvas id="minimap-canvas" width="180" height="260"></canvas>
+    </div>
+
+    <!-- Bottom Playback & Camera Controls Bar -->
+    <footer class="hud-card controls-bar">
+      <div class="controls-row-top">
+        <div class="playback-group">
+          <button id="btn-play" class="ctrl-btn primary" title="Play / Pause (Space)">
+            <span id="play-icon">▶</span> <span id="play-label">Play</span>
+          </button>
+          <button id="btn-reset" class="ctrl-btn" title="Reset to KM 0 (R)">↺ Reset</button>
+          <div class="speed-group" title="Simulation Speed">
+            <span class="ctrl-label">Speed</span>
+            <button class="speed-btn" data-speed="1">1×</button>
+            <button class="speed-btn active" data-speed="4">4×</button>
+            <button class="speed-btn" data-speed="10">10×</button>
+            <button class="speed-btn" data-speed="20">20×</button>
+          </div>
+        </div>
+
+        <div class="camera-group">
+          <span class="ctrl-label">Camera</span>
+          <button class="cam-btn active" data-cam="follow" title="3rd-person Chase Cam (1)">Follow</button>
+          <button class="cam-btn" data-cam="pov" title="1st-person Rider POV (2)">Rider POV</button>
+          <button class="cam-btn" data-cam="map" title="North-Up 3D Map Overview (3)">Map View</button>
+          <button class="cam-btn" data-cam="orbit" title="Cinematic Orbit (4)">Orbit</button>
+        </div>
+
+        <div class="view-toggles">
+          <button id="btn-labels" class="toggle-btn active" title="Toggle 3D Map Labels">Labels</button>
+          <button id="btn-buildings" class="toggle-btn active" title="Toggle City Buildings">City</button>
+          <button id="btn-minimap" class="toggle-btn active" title="Toggle 2D Mini-Map">Mini-Map</button>
+        </div>
+      </div>
+
+      <div class="scrubber-row">
+        <span class="scrub-end">KM 0</span>
+        <div class="scrubber-wrap">
+          <input type="range" id="distance-scrubber" min="0" max="5000" step="1" value="0" />
+          <div class="scrubber-ticks" id="scrubber-ticks"></div>
+        </div>
+        <span class="scrub-end" id="scrubber-end-label">5.0 KM</span>
+      </div>
+      <div class="controls-hint">
+        Drag canvas to look left/right &amp; up/down · Scroll to zoom · Double-click or <kbd>C</kbd> recenter · <kbd>Space</kbd> Play · <kbd>1</kbd>–<kbd>4</kbd> Camera
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
