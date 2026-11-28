@@ -618,7 +618,8 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
         uturnGroup.add(cone);
       }
     }
-    const uturnArch = createRaceGantry('U-TURN · P. OCAMPO', '180° TURN TO NORTHBOUND', '#0f172a', '#f5c400', 28);
+    const uturnTitle = is10k ? '1ST U-TURN · P. OCAMPO' : 'U-TURN · P. OCAMPO';
+    const uturnArch = createRaceGantry(uturnTitle, '180° TURN TO NORTHBOUND', '#0f172a', '#f5c400', 28);
     uturnArch.position.set(0, 0, 14);
     uturnGroup.add(uturnArch);
     uturnGroup.position.copy(toWorld(S_UTURN, 0, 0));
@@ -640,7 +641,7 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
       turn5Group.rotation.y = ROXAS_ANGLE_RAD;
       group.add(turn5Group);
     } else if (is10k) {
-      const pbTurnSign = createDirectionalSign('RIGHT TO PADRE BURGOS →', 'TOWARDS FINANCE ROAD U-TURN');
+      const pbTurnSign = createDirectionalSign('RIGHT TO PADRE BURGOS →', 'TOWARDS FINANCE RD U-TURN');
       pbTurnSign.position.copy(toWorld(S_KATIGBAK - 18, LANE_OFFSET_NB + 6, 0));
       pbTurnSign.rotation.y = ROXAS_ANGLE_RAD;
       group.add(pbTurnSign);
@@ -650,11 +651,7 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
       hydGenLuna.rotation.y = ROXAS_ANGLE_RAD + Math.PI * 0.5;
       group.add(hydGenLuna);
 
-      const finForkSign = createDirectionalSign('BEAR RIGHT → FINANCE RD', '10KM U-TURN AHEAD');
-      finForkSign.position.copy(toWorld(PB_LANE_OUT_S - 20, PB_FORK_OFFSET + 18, 0));
-      finForkSign.rotation.y = ROXAS_ANGLE_RAD - Math.PI * 0.5;
-      group.add(finForkSign);
-
+      // 2ND U-TURN · FINANCE RD
       const finMeta = route.financeMeta;
       const finUturnGroup = new THREE.Group();
       for (const side of [-1, 1]) {
@@ -664,16 +661,23 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
           finUturnGroup.add(cone);
         }
       }
-      const finArch = createRaceGantry('10KM U-TURN · FINANCE RD', 'RETURN TO PADRE BURGOS AVE', '#0f172a', '#dc2626', 26);
+      const finArch = createRaceGantry('2ND U-TURN · FINANCE RD', 'RETURN TO INTRAMUROS LOOP', '#0f172a', '#dc2626', 26);
       finArch.position.set(0, 0, 12);
       finUturnGroup.add(finArch);
       finUturnGroup.position.copy(finMeta.uturnCenter);
       finUturnGroup.rotation.y = Math.atan2(finMeta.dirOut.x, finMeta.dirOut.z);
       group.add(finUturnGroup);
 
-      const katReturnSign = createDirectionalSign('KATIGBAK DR → FINISH', 'QUIRINO GRANDSTAND AHEAD');
-      katReturnSign.position.copy(toWorld(PB_LANE_RET_S - 18, -28, 0));
-      katReturnSign.rotation.y = ROXAS_ANGLE_RAD + Math.PI * 0.5;
+      // 3RD U-TURN · ANDA CIRCLE (Bonifacio Drive)
+      const andaUturn10k = createRaceGantry('U-TURN · ANDA CIRCLE', 'RETURN TO KATIGBAK DR FINISH', '#0f172a', '#dc2626', 28);
+      andaUturn10k.position.copy(toWorld(S_ANDA_CIRCLE + 34, 0, 0));
+      andaUturn10k.rotation.y = ROXAS_ANGLE_RAD + Math.PI;
+      group.add(andaUturn10k);
+
+      // Step 17: Right Turn onto Katigbak Drive towards Finish
+      const katReturnSign = createDirectionalSign('RIGHT TO KATIGBAK DR →', 'QUIRINO GRANDSTAND FINISH');
+      katReturnSign.position.copy(toWorld(S_KATIGBAK + 18, LANE_OFFSET_SB - 12, 0));
+      katReturnSign.rotation.y = ROXAS_ANGLE_RAD + Math.PI;
       group.add(katReturnSign);
     } else if (is21k) {
       // 21KM Hydration Station by Jones Bridge (aligned parallel to Jones Bridge approach, cleanly off the blue lane!)
@@ -753,27 +757,23 @@ export function buildMarkersAndLabels(scene, labelsContainer, onLabelClick, init
         { checkpoint: null, worldPos: toWorld(1450, -100, 6), html: `<div class="label-geo water">MANILA BAY · ROXAS BLVD</div>` }
       ];
     } else if (is10k) {
+      const cp = route.checkpoints;
       labelDefs = [
-        { checkpoint: 'step1', worldPos: toWorld(S_START, LANE_OFFSET_SB + 42, 14), html: `<div class="label-pill start">START · KM 0</div>` },
-        { checkpoint: 'step1', worldPos: toWorld(S_START + 25, LANE_OFFSET_SB - 32, 10), html: `<div class="label-step">1</div>` },
-        { checkpoint: 'step2', worldPos: toWorld(1040, LANE_OFFSET_SB - 36, 12), html: `<div class="label-step">2</div>` },
+        { checkpoint: 'step1', worldPos: toWorld(S_START, LANE_OFFSET_SB + 46, 15), html: `<div class="label-pill start">START · KM 0</div>` },
         { checkpoint: 'hydPhNavy', worldPos: toWorld(S_HYDRATION - 10, LANE_OFFSET_SB - 52, 15), html: `<div class="label-pill hydration">💧 HYDRATION · PH NAVY</div>` },
-        { checkpoint: 'step3', worldPos: toWorld(S_UTURN + 42, 0, 16), html: `<div class="label-pill uturn">U-TURN · P. OCAMPO</div>` },
-        { checkpoint: 'step3', worldPos: toWorld(S_UTURN + 88, 0, 10), html: `<div class="label-step">3</div>` },
-        { checkpoint: 'step4', worldPos: toWorld(1040, LANE_OFFSET_NB + 36, 12), html: `<div class="label-step">4</div>` },
-        { checkpoint: 'step5', worldPos: toWorld(S_KATIGBAK + 40, LANE_OFFSET_NB - 28, 12), html: `<div class="label-step">5</div>` },
-        { checkpoint: 'step6', worldPos: toWorld(PB_LANE_OUT_S + 38, 360, 12), html: `<div class="label-step">6</div>` },
+        { checkpoint: 'step3', worldPos: toWorld(S_UTURN + 46, 0, 16), html: `<div class="label-pill uturn">1ST U-TURN · P. OCAMPO</div>` },
         { checkpoint: 'hydGenLuna', worldPos: toWorld(PB_LANE_OUT_S + 68, PB_GEN_LUNA_OFFSET + 40, 16), html: `<div class="label-pill hydration">💧 HYDRATION · GEN. LUNA–FINANCE</div>` },
-        { checkpoint: 'step7', worldPos: toWorld(PB_LANE_OUT_S + 32, PB_FORK_OFFSET + 35, 12), html: `<div class="label-step">7</div>` },
-        { checkpoint: 'step8', worldPos: route.financeMeta.uturnCenter.clone().add(new THREE.Vector3(25, 18, 15)), html: `<div class="label-pill uturn">10KM U-TURN · FINANCE RD</div>` },
-        { checkpoint: 'step8', worldPos: route.financeMeta.uturnCenter.clone().add(new THREE.Vector3(-10, 12, -28)), html: `<div class="label-step">8</div>` },
-        { checkpoint: 'step9', worldPos: route.checkpoints.step9.position.clone().add(new THREE.Vector3(0, 12, -32)), html: `<div class="label-step">9</div>` },
-        { checkpoint: 'step10', worldPos: toWorld(PB_LANE_RET_S - 42, 340, 12), html: `<div class="label-step">10</div>` },
-        { checkpoint: 'step11', worldPos: toWorld(PB_LANE_RET_S - 38, -22, 12), html: `<div class="label-step">11</div>` },
+        { checkpoint: 'step6', worldPos: route.financeMeta.uturnCenter.clone().add(new THREE.Vector3(25, 18, 15)), html: `<div class="label-pill uturn">2ND U-TURN · FINANCE RD</div>` },
+        { checkpoint: 'step15', worldPos: LANDMARKS_21KM.andaCircle.clone().add(new THREE.Vector3(-45, 22, 0)), html: `<div class="label-pill uturn">U-TURN · ANDA CIRCLE</div>` },
         { checkpoint: 'finish', worldPos: toWorld(route.finalS + 10, KATIGBAK_WEST_OFFSET, 16), html: `<div class="label-pill finish">FINISH</div><div class="label-sub">Katigbak Dr · Quirino Grandstand</div>` },
-        { checkpoint: null, worldPos: toWorld(-110, 220, 10), html: `<div class="label-geo park">Rizal Park (Luneta)</div>` },
-        { checkpoint: null, worldPos: toWorld(S_KATIGBAK - 130, 360, 12), html: `<div class="label-geo park">Intramuros</div>` },
-        { checkpoint: null, worldPos: toWorld(S_KATIGBAK + 105, PB_FORK_OFFSET + 80, 14), html: `<div class="label-geo">National Museum</div>` },
+        // Numbered step bubbles matching all 18 steps on the Official 10KM map
+        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((num) => ({
+          checkpoint: `step${num}`,
+          worldPos: cp[`step${num}`].position.clone().add(new THREE.Vector3(0, 12, 0)),
+          html: `<div class="label-step">${num}</div>`
+        })),
+        { checkpoint: null, worldPos: toWorld(-110, 220, 10), html: `<div class="label-geo park">Rizal Park</div>` },
+        { checkpoint: null, worldPos: toWorld(-720, 270, 16), html: `<div class="label-geo park">INTRAMUROS</div>` },
         { checkpoint: null, worldPos: toWorld(1450, -100, 6), html: `<div class="label-geo water">MANILA BAY · ROXAS BLVD</div>` }
       ];
     } else if (is21k) {

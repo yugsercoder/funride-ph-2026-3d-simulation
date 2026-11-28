@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import {
-  DIR_SB,
-  DIR_NB,
   DIR_EAST,
-  DIR_WEST,
+  DIR_NB,
   toWorld,
   LANE_OFFSET_SB,
   LANE_OFFSET_NB,
@@ -11,121 +9,118 @@ import {
   S_HYDRATION,
   S_UTURN,
   S_KATIGBAK,
+  S_ANDA_CIRCLE,
   KATIGBAK_WEST_OFFSET,
-  CORNER_RADIUS,
   PB_LANE_OUT_S,
   PB_LANE_RET_S,
   PB_GEN_LUNA_OFFSET,
   PB_FORK_OFFSET,
   FINANCE_ANGLE_DEG,
   FINANCE_LEN,
-  createLineSegment,
-  createArcSegment,
+  buildFilletedPath,
   bearingAndCompass
 } from './routeCommon.js';
 import { ROUTE_5KM } from './route5km.js';
 
 /**
- * FUNRIDE PH 2026 — 10KM CYCLING ROUTE GEOMETRY
- * Faithful to "FunRide 10KM Route - Map.png":
- *   A. Starting Point: KM 0 – Quirino Grandstand
- *      1. Start at KM 0, Quirino Grandstand.
- *      2. Proceed straight along Roxas Boulevard, southbound (+ Hydration PH Navy).
- *      3. Make a U-turn towards P. Ocampo Street.
- *      4. Proceed straight along Roxas Boulevard, northbound.
- *   B. Padre Burgos – Finance Road U-Turn
- *      5. Turn right to Padre Burgos Avenue.
- *      6. Proceed straight along Padre Burgos Avenue towards Finance Road (+ Hydration Gen. Luna–Finance).
- *      7. Bear right onto Finance Road.
- *      8. Make a U-turn on Finance Road (just short of Taft Ave).
- *   C. Final Return to Quirino Grandstand
- *      9. Proceed back to Padre Burgos Avenue towards Roxas Boulevard.
- *     10. Proceed straight along Padre Burgos Avenue to Roxas Boulevard.
- *     11. Turn left to Katigbak Drive and proceed to the FINISH LINE at Quirino Grandstand.
+ * FUNRIDE PH 2026 — UPDATED OFFICIAL 10KM CYCLING ROUTE GEOMETRY (18 STEPS)
+ * Faithful to updated Official 10KM Cycling Route map:
+ *   A. KM 0 – Roxas Boulevard – P. Ocampo U-Turn (Steps 1–4)
+ *      1. START: From KM 0, Quirino Grandstand, Luneta Park.
+ *      2. Proceed straight ahead along Roxas Boulevard Southbound (+ Hydration PH Navy).
+ *      3. Make a U-turn at Pablo Ocampo Street (1ST U-TURN · P. OCAMPO).
+ *      4. Proceed straight ahead along Roxas Boulevard Northbound.
+ *   B. Padre Burgos – Finance Rd U-Turn – Intramuros Loop (Steps 5–12)
+ *      5. Turn right to Padre Burgos Avenue (+ Hydration Gen. Luna–Finance).
+ *      6. Make a U-turn at Finance Road / Padre Burgos Avenue (2ND U-TURN · FINANCE RD).
+ *      7. Turn right to General Luna Street.
+ *      8. Turn right to Muralla Street.
+ *      9. Turn left to Andres Soriano Avenue.
+ *     10. Turn left to General Luna Street.
+ *     11. Proceed straight ahead towards Padre Burgos Avenue.
+ *     12. Turn right to Padre Burgos Avenue.
+ *   C. Bonifacio Drive – Anda Circle U-Turn – Finish (Steps 13–18)
+ *     13. Turn right to Bonifacio Drive.
+ *     14. Proceed straight ahead towards Anda Circle.
+ *     15. Make a U-turn at Anda Circle (U-TURN · ANDA CIRCLE).
+ *     16. Proceed straight ahead along Roxas Boulevard towards Katigbak Drive.
+ *     17. Turn right to Katigbak Drive.
+ *     18. FINISH LINE: Quirino Grandstand, Luneta Park, Manila.
  */
 
 function build10KMRoute() {
-  const segments = [];
   const up = new THREE.Vector3(0, 1, 0);
-
-  // Finance Road direction vectors (bearing 18° right/clockwise from DIR_EAST)
   const finAngleRad = THREE.MathUtils.degToRad(FINANCE_ANGLE_DEG);
   const DIR_FIN_OUT = DIR_EAST.clone().applyAxisAngle(up, -finAngleRad).normalize();
-  const DIR_FIN_RET = DIR_FIN_OUT.clone().negate();
-  // Normal pointing left (north-ish) of Finance Road outbound
   const DIR_FIN_LEFT = DIR_NB.clone().applyAxisAngle(up, -finAngleRad).normalize();
-  const DIR_FIN_RIGHT = DIR_FIN_LEFT.clone().negate();
 
-  // 0. Southbound straight: KM 0 -> P. Ocampo U-turn entry
-  const pStart = toWorld(S_START, LANE_OFFSET_SB);
-  const pUturnEntry = toWorld(S_UTURN, LANE_OFFSET_SB);
-  segments.push(createLineSegment(pStart, pUturnEntry));
-
-  // 1. P. Ocampo 180° U-Turn (LEFT turn from SB to NB)
-  const uturnCenter = toWorld(S_UTURN, 0);
-  const uturnRadius = Math.abs(LANE_OFFSET_SB);
-  segments.push(createArcSegment(uturnCenter, uturnRadius, DIR_WEST.clone(), Math.PI));
-
-  // 2. Northbound straight: P. Ocampo -> Padre Burgos Ave right-turn entry
-  const pUturnExit = toWorld(S_UTURN, LANE_OFFSET_NB);
-  const pPbTurnEntry = toWorld(PB_LANE_OUT_S + CORNER_RADIUS, LANE_OFFSET_NB);
-  segments.push(createLineSegment(pUturnExit, pPbTurnEntry));
-
-  // 3. Step 5: 90° RIGHT turn from Roxas Blvd NB onto Padre Burgos Ave eastbound (outbound)
-  // Center is east of entry by CORNER_RADIUS
-  const pbTurnCenter = toWorld(PB_LANE_OUT_S + CORNER_RADIUS, LANE_OFFSET_NB + CORNER_RADIUS);
-  segments.push(createArcSegment(pbTurnCenter, CORNER_RADIUS, DIR_WEST.clone(), -Math.PI * 0.5));
-
-  // 4. Step 6: Straight along Padre Burgos Ave outbound -> Finance Road fork
-  const forkRadius = 90;
-  const pPbOutStart = toWorld(PB_LANE_OUT_S, LANE_OFFSET_NB + CORNER_RADIUS);
+  // Finance Road U-turn geometry (2ND U-TURN · FINANCE RD)
   const pForkOutStart = toWorld(PB_LANE_OUT_S, PB_FORK_OFFSET);
-  segments.push(createLineSegment(pPbOutStart, pForkOutStart));
+  const finOutStart = pForkOutStart.clone().addScaledVector(DIR_FIN_OUT, 25);
+  const finUturnEntry = finOutStart.clone().addScaledVector(DIR_FIN_OUT, FINANCE_LEN * 0.72);
+  const finHalfW = (PB_LANE_OUT_S - PB_LANE_RET_S) * 0.5; // 7.5m
+  const finUturnCenter = finUturnEntry.clone().addScaledVector(DIR_FIN_LEFT, finHalfW);
+  const finUturnApex = finUturnCenter.clone().addScaledVector(DIR_FIN_OUT, finHalfW);
+  const finRetStart = finUturnEntry.clone().addScaledVector(DIR_FIN_LEFT, finHalfW * 2);
 
-  // 5. Step 7: Bear right onto Finance Road (smooth right curve of FINANCE_ANGLE_DEG)
-  const forkOutCenter = pForkOutStart.clone().addScaledVector(DIR_SB, forkRadius);
-  const segForkOut = createArcSegment(forkOutCenter, forkRadius, DIR_NB.clone(), -finAngleRad);
-  segments.push(segForkOut);
-  const pFinOutStart = segForkOut.sample(segForkOut.length).position;
+  const waypoints = [
+    // --- SECTION A: KM 0 -> Roxas Blvd SB -> P. Ocampo 1st U-Turn -> Roxas Blvd NB ---
+    { pos: toWorld(S_START, LANE_OFFSET_SB), tag: 'step1' },
+    { pos: toWorld(1040, LANE_OFFSET_SB), tag: 'step2' },
+    { pos: toWorld(S_HYDRATION, LANE_OFFSET_SB), tag: 'hydPhNavy' },
+    // Step 3: 1ST U-TURN · P. OCAMPO
+    { pos: toWorld(S_UTURN + 8, LANE_OFFSET_SB), radius: 8.5 },
+    { pos: toWorld(S_UTURN + 8, 0), radius: 8.5, tag: 'step3' },
+    { pos: toWorld(S_UTURN + 8, LANE_OFFSET_NB), radius: 8.5 },
+    { pos: toWorld(1040, LANE_OFFSET_NB), tag: 'step4' },
 
-  // 6. Finance Road outbound straight to U-turn just short of Taft Ave
-  const pFinUturnEntry = pFinOutStart.clone().addScaledVector(DIR_FIN_OUT, FINANCE_LEN);
-  segments.push(createLineSegment(pFinOutStart, pFinUturnEntry));
+    // --- SECTION B: Padre Burgos -> Finance Rd 2nd U-Turn -> Intramuros Loop ---
+    // Step 5: Right turn onto Padre Burgos Ave
+    { pos: toWorld(PB_LANE_OUT_S, LANE_OFFSET_NB), radius: 18, tag: 'step5' },
+    { pos: toWorld(PB_LANE_OUT_S, PB_GEN_LUNA_OFFSET), radius: 16, tag: 'hydGenLuna' },
+    { pos: pForkOutStart, radius: 45 },
+    // Step 6: 2ND U-TURN · FINANCE RD
+    { pos: finUturnEntry, radius: 7.5 },
+    { pos: finUturnApex, radius: 7.5, tag: 'step6' },
+    { pos: finRetStart, radius: 7.5 },
+    // Return west along Padre Burgos to Gen. Luna St entrance into Intramuros
+    { pos: toWorld(PB_LANE_RET_S, PB_FORK_OFFSET - 30), radius: 36 },
+    { pos: toWorld(PB_LANE_RET_S, 540), radius: 18, tag: 'step7' },
+    // Step 7-8: Right onto General Luna St -> Right onto Muralla St (northbound inside Intramuros)
+    { pos: toWorld(-430, 455), radius: 18, tag: 'step8' },
+    { pos: toWorld(-730, 495), radius: 34 },
+    { pos: toWorld(-985, 480), radius: 22 },
+    // Step 9: Turn left onto Andres Soriano Avenue (along northern Intramuros)
+    { pos: toWorld(-1065, 255), radius: 22, tag: 'step9' },
+    // Step 10: Turn left onto General Luna Street (south-southeast through center of Intramuros)
+    { pos: toWorld(-975, 90), radius: 18, tag: 'step10' },
+    // Step 11: Proceed straight ahead towards Padre Burgos Avenue
+    { pos: toWorld(-660, 270), radius: 20, tag: 'step11' },
+    // Step 12: Turn right onto Padre Burgos Avenue (westbound toward Roxas Blvd)
+    { pos: toWorld(PB_LANE_RET_S, 465), radius: 18, tag: 'step12' },
 
-  // 7. Step 8: 10KM U-TURN on Finance Road (180° LEFT turn to return lane)
-  const finHalfWidth = (PB_LANE_OUT_S - PB_LANE_RET_S) * 0.5; // 7.5m -> 15m lane separation
-  const finUturnCenter = pFinUturnEntry.clone().addScaledVector(DIR_FIN_LEFT, finHalfWidth);
-  const segFinUturn = createArcSegment(finUturnCenter, finHalfWidth, DIR_FIN_RIGHT.clone(), Math.PI);
-  segments.push(segFinUturn);
-  const pFinRetStart = segFinUturn.sample(segFinUturn.length).position;
+    // --- SECTION C: Bonifacio Drive -> Anda Circle U-Turn -> Katigbak Dr -> FINISH ---
+    // Step 13: Turn right onto Bonifacio Drive (northbound)
+    { pos: toWorld(PB_LANE_RET_S, LANE_OFFSET_NB), radius: 18, tag: 'step13' },
+    // Step 14: Proceed straight ahead towards Anda Circle
+    { pos: toWorld(-680, LANE_OFFSET_NB), tag: 'step14' },
+    // Step 15: U-TURN · ANDA CIRCLE (clean 15.5m loop around the 6.5m monument island)
+    { pos: toWorld(S_ANDA_CIRCLE + 22, LANE_OFFSET_NB), radius: 12 },
+    { pos: toWorld(S_ANDA_CIRCLE, 15.5), radius: 14 },
+    { pos: toWorld(S_ANDA_CIRCLE - 15.5, 0), radius: 14, tag: 'step15' },
+    { pos: toWorld(S_ANDA_CIRCLE, -15.5), radius: 14 },
+    { pos: toWorld(S_ANDA_CIRCLE + 22, LANE_OFFSET_SB), radius: 12 },
+    // Step 16: Proceed straight ahead southbound along Bonifacio Dr / Roxas Blvd towards Katigbak Dr
+    { pos: toWorld(-650, LANE_OFFSET_SB), tag: 'step16' },
+    // Step 17: Turn right onto Katigbak Drive (westbound to Quirino Grandstand)
+    { pos: toWorld(S_KATIGBAK, LANE_OFFSET_SB), radius: 18, tag: 'step17' },
+    { pos: toWorld(S_KATIGBAK, KATIGBAK_WEST_OFFSET), radius: 18 },
+    // Step 18: FINISH LINE at Quirino Grandstand
+    { pos: toWorld(ROUTE_5KM.finalS, KATIGBAK_WEST_OFFSET), tag: 'finish' }
+  ];
 
-  // 8. Step 9: Finance Road return straight back toward Padre Burgos Ave
-  // Compute exact join point so the return curve lands cleanly on PB_LANE_RET_S!
-  const retRadius = forkRadius + finHalfWidth * 2; // concentric curve with outbound fork!
-  const pForkRetEnd = toWorld(PB_LANE_RET_S, PB_FORK_OFFSET);
-  const forkRetCenter = pForkRetEnd.clone().addScaledVector(DIR_SB, retRadius);
-  // Start of return arc (at angle -finAngleRad from DIR_NB)
-  const retArcStartDir = DIR_NB.clone().applyAxisAngle(up, -finAngleRad).normalize();
-  const pForkRetStart = forkRetCenter.clone().addScaledVector(retArcStartDir, retRadius);
-  segments.push(createLineSegment(pFinRetStart, pForkRetStart));
+  const { segments, tagDistances, totalLength } = buildFilletedPath(waypoints, 18);
 
-  // 9. Smooth LEFT curve from Finance Road back onto Padre Burgos Ave westbound
-  segments.push(createArcSegment(forkRetCenter, retRadius, retArcStartDir, finAngleRad));
-
-  // 10. Step 10 & 11: Straight westbound along Padre Burgos Ave -> across Roxas Blvd -> Katigbak Drive!
-  const pKatigbakWestEnd = toWorld(PB_LANE_RET_S, KATIGBAK_WEST_OFFSET + CORNER_RADIUS);
-  segments.push(createLineSegment(pForkRetEnd, pKatigbakWestEnd));
-
-  // 11. Left Curve from Katigbak Drive onto Independence Rd / Quirino Grandstand Parade Ground
-  const kTurn2Center = toWorld(PB_LANE_RET_S + CORNER_RADIUS, KATIGBAK_WEST_OFFSET + CORNER_RADIUS);
-  segments.push(createArcSegment(kTurn2Center, CORNER_RADIUS, DIR_NB.clone(), Math.PI * 0.5));
-
-  // 12. Final straight into the exact same FINISH LINE at Quirino Grandstand as 5KM
-  const pFinalStart = toWorld(PB_LANE_RET_S + CORNER_RADIUS, KATIGBAK_WEST_OFFSET);
-  const pFinish = toWorld(ROUTE_5KM.finalS, KATIGBAK_WEST_OFFSET);
-  segments.push(createLineSegment(pFinalStart, pFinish));
-
-  // Cumulative distances
   let acc = 0;
   const cumSegments = segments.map((seg) => {
     const startDist = acc;
@@ -133,24 +128,30 @@ function build10KMRoute() {
     return { ...seg, startDist, endDist: acc };
   });
 
-  const totalLength = acc;
   const displayKm = 10.0;
 
-  // Exact checkpoint distances along the 10KM route
-  const distStart = 0;
-  const distStep2 = 1040;
-  const distHydPhNavy = S_HYDRATION;
-  const distStep3 = cumSegments[1].startDist + cumSegments[1].length * 0.5;
-  const distStep4 = cumSegments[2].startDist + 1080;
-  const distStep5 = cumSegments[3].startDist + cumSegments[3].length * 0.5;
-  const distStep6 = cumSegments[4].startDist + 320;
-  const distHydGenLuna = cumSegments[4].startDist + (PB_GEN_LUNA_OFFSET - (LANE_OFFSET_NB + CORNER_RADIUS));
-  const distStep7 = cumSegments[5].startDist + cumSegments[5].length * 0.5;
-  const distStep8 = cumSegments[7].startDist + cumSegments[7].length * 0.5;
-  const distStep9 = cumSegments[8].startDist + cumSegments[8].length * 0.55;
-  const distStep10 = cumSegments[10].startDist + 340;
-  const distStep11 = cumSegments[10].startDist + PB_FORK_OFFSET; // right at Roxas Blvd -> Katigbak Dr crossing
-  const distFinish = totalLength;
+  const milestones = [
+    { id: 'step1', text: 'Step 1 · START: KM 0, Quirino Grandstand, Luneta Park', color: '#0d9488' },
+    { id: 'step2', text: 'Step 2 · Roxas Boulevard Southbound', color: '#1d4ed8' },
+    { id: 'hydPhNavy', text: 'Hydration Station · PH Navy (by P. Ocampo)', color: '#0284c7' },
+    { id: 'step3', text: 'Step 3 · 1st U-Turn at Pablo Ocampo Street', color: '#0f172a' },
+    { id: 'step4', text: 'Step 4 · Roxas Boulevard Northbound', color: '#1d4ed8' },
+    { id: 'step5', text: 'Step 5 · Turn right to Padre Burgos Avenue', color: '#1d4ed8' },
+    { id: 'hydGenLuna', text: 'Hydration Station · Gen. Luna–Finance', color: '#0284c7' },
+    { id: 'step6', text: 'Step 6 · 2nd U-Turn at Finance Road / Padre Burgos Ave', color: '#0f172a' },
+    { id: 'step7', text: 'Step 7 · Turn right to General Luna Street', color: '#1d4ed8' },
+    { id: 'step8', text: 'Step 8 · Turn right to Muralla Street (Intramuros)', color: '#1d4ed8' },
+    { id: 'step9', text: 'Step 9 · Turn left to Andres Soriano Avenue', color: '#1d4ed8' },
+    { id: 'step10', text: 'Step 10 · Turn left to General Luna Street (Intramuros)', color: '#1d4ed8' },
+    { id: 'step11', text: 'Step 11 · General Luna St towards Padre Burgos Avenue', color: '#1d4ed8' },
+    { id: 'step12', text: 'Step 12 · Turn right to Padre Burgos Avenue Westbound', color: '#1d4ed8' },
+    { id: 'step13', text: 'Step 13 · Turn right to Bonifacio Drive Northbound', color: '#1d4ed8' },
+    { id: 'step14', text: 'Step 14 · Bonifacio Drive towards Anda Circle', color: '#1d4ed8' },
+    { id: 'step15', text: 'Step 15 · U-Turn at Anda Circle', color: '#0f172a' },
+    { id: 'step16', text: 'Step 16 · Roxas Boulevard Southbound towards Katigbak Dr', color: '#1d4ed8' },
+    { id: 'step17', text: 'Step 17 · Turn right to Katigbak Drive', color: '#1d4ed8' },
+    { id: 'finish', text: 'Step 18 · FINISH LINE: Quirino Grandstand (10.00 km Complete!)', color: '#dc2626' }
+  ].map((m) => ({ ...m, distM: tagDistances[m.id] ?? 0 }));
 
   function sample(distM) {
     const d = THREE.MathUtils.clamp(distM, 0, totalLength);
@@ -165,62 +166,16 @@ function build10KMRoute() {
     const { position, tangent } = seg.sample(localD);
     const { bearingDeg, compassDir } = bearingAndCompass(tangent);
 
-    let activeCheckpoint = 'step1';
-    let segmentText = 'Step 1 · Start at KM 0, Quirino Grandstand';
-    let segmentColor = '#0d9488';
-
-    if (d >= distFinish - 18) {
-      activeCheckpoint = 'finish';
-      segmentText = 'FINISH LINE · Quirino Grandstand (10.00 km Complete!)';
-      segmentColor = '#dc2626';
-    } else if (d >= distStep11 - 40) {
-      activeCheckpoint = 'step11';
-      segmentText = 'Step 11 · Katigbak Drive → Quirino Grandstand Finish';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[10].startDist + 30) {
-      activeCheckpoint = 'step10';
-      segmentText = 'Step 10 · Padre Burgos Ave Westbound toward Roxas Blvd';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[8].startDist - 10) {
-      activeCheckpoint = 'step9';
-      segmentText = 'Step 9 · Return from Finance Rd back to Padre Burgos Ave';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[7].startDist - 40) {
-      activeCheckpoint = 'step8';
-      segmentText = 'Step 8 · 10KM U-Turn on Finance Road (before Taft Ave)';
-      segmentColor = '#0f172a';
-    } else if (d >= cumSegments[5].startDist - 15) {
-      activeCheckpoint = 'step7';
-      segmentText = 'Step 7 · Bear right onto Finance Road';
-      segmentColor = '#1d4ed8';
-    } else if (d >= distHydGenLuna - 55 && d <= distHydGenLuna + 55) {
-      activeCheckpoint = 'hydGenLuna';
-      segmentText = 'Hydration Station · Gen. Luna–Finance';
-      segmentColor = '#0284c7';
-    } else if (d >= cumSegments[4].startDist + 25) {
-      activeCheckpoint = 'step6';
-      segmentText = 'Step 6 · Padre Burgos Ave Eastbound toward Finance Rd';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[3].startDist - 35) {
-      activeCheckpoint = 'step5';
-      segmentText = 'Step 5 · Turn right onto Padre Burgos Avenue';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[2].startDist + 20) {
-      activeCheckpoint = 'step4';
-      segmentText = 'Step 4 · Roxas Boulevard Northbound (Return to Luneta)';
-      segmentColor = '#1d4ed8';
-    } else if (d >= cumSegments[1].startDist - 35) {
-      activeCheckpoint = 'step3';
-      segmentText = 'Step 3 · U-Turn at P. Ocampo Street';
-      segmentColor = '#0f172a';
-    } else if (d >= distHydPhNavy - 70 && d <= distHydPhNavy + 70) {
-      activeCheckpoint = 'hydPhNavy';
-      segmentText = 'Hydration Station · PH Navy (by P. Ocampo)';
-      segmentColor = '#0284c7';
-    } else if (d > 60) {
-      activeCheckpoint = 'step2';
-      segmentText = 'Step 2 · Roxas Boulevard Southbound (Bay-side)';
-      segmentColor = '#1d4ed8';
+    let active = milestones[0];
+    if (d >= totalLength - 20) {
+      active = milestones[milestones.length - 1];
+    } else {
+      for (let i = milestones.length - 2; i >= 0; i--) {
+        if (d >= milestones[i].distM - 30) {
+          active = milestones[i];
+          break;
+        }
+      }
     }
 
     return {
@@ -230,9 +185,9 @@ function build10KMRoute() {
       tangent,
       bearingDeg,
       compassDir,
-      activeCheckpoint,
-      segmentText,
-      segmentColor
+      activeCheckpoint: active.id,
+      segmentText: active.text,
+      segmentColor: active.color
     };
   }
 
@@ -244,30 +199,31 @@ function build10KMRoute() {
     densePoints.push(sample(totalLength));
   }
 
-  const fmtKm = (d) => `${((d / totalLength) * displayKm).toFixed(2)} km`;
+  const fmtKm = (id) => `${(((tagDistances[id] ?? 0) / totalLength) * displayKm).toFixed(2)} km`;
 
-  const checkpoints = {
-    step1: { id: 'step1', distM: distStart, position: sample(distStart).position, title: 'START · KM 0' },
-    step2: { id: 'step2', distM: distStep2, position: sample(distStep2).position, title: 'Step 2' },
-    hydPhNavy: { id: 'hydPhNavy', distM: distHydPhNavy, position: sample(distHydPhNavy).position, title: 'HYDRATION · PH NAVY' },
-    step3: { id: 'step3', distM: distStep3, position: sample(distStep3).position, title: 'U-TURN · P. OCAMPO' },
-    step4: { id: 'step4', distM: distStep4, position: sample(distStep4).position, title: 'Step 4' },
-    step5: { id: 'step5', distM: distStep5, position: sample(distStep5).position, title: 'Step 5 · Padre Burgos' },
-    step6: { id: 'step6', distM: distStep6, position: sample(distStep6).position, title: 'Step 6 · Padre Burgos Ave' },
-    hydGenLuna: { id: 'hydGenLuna', distM: distHydGenLuna, position: sample(distHydGenLuna).position, title: 'HYDRATION · GEN. LUNA–FINANCE' },
-    step7: { id: 'step7', distM: distStep7, position: sample(distStep7).position, title: 'Step 7 · Finance Rd' },
-    step8: { id: 'step8', distM: distStep8, position: sample(distStep8).position, title: '10KM U-TURN · FINANCE RD' },
-    step9: { id: 'step9', distM: distStep9, position: sample(distStep9).position, title: 'Step 9 · Return to Padre Burgos' },
-    step10: { id: 'step10', distM: distStep10, position: sample(distStep10).position, title: 'Step 10 · Padre Burgos Westbound' },
-    step11: { id: 'step11', distM: distStep11, position: sample(distStep11).position, title: 'Step 11 · Katigbak Drive' },
-    finish: { id: 'finish', distM: distFinish, position: sample(distFinish).position, title: 'FINISH' }
-  };
+  const checkpoints = {};
+  for (const m of milestones) {
+    checkpoints[m.id] = {
+      id: m.id,
+      distM: m.distM,
+      position: sample(m.distM).position,
+      title: m.text
+    };
+  }
+
+  const stepItem = (num, text) => ({
+    checkpoint: `step${num}`,
+    badge: String(num),
+    type: 'step',
+    text,
+    meta: fmtKm(`step${num}`)
+  });
 
   return {
     id: '10km',
     shortLabel: '10KM',
-    title: '10KM CYCLING ROUTE',
-    subtitle: 'Manila – Roxas Boulevard – P. Ocampo U-turn – Padre Burgos Avenue – Finance Road U-turn – Quirino Grandstand',
+    title: 'OFFICIAL 10KM CYCLING ROUTE',
+    subtitle: 'Manila – Roxas Boulevard – P. Ocampo U-turn – Padre Burgos – Finance Rd U-turn – Intramuros – Anda Circle U-turn – Quirino Grandstand',
     minimapTitle: '10KM ROUTE MAP',
     displayKm,
     totalLength,
@@ -279,52 +235,58 @@ function build10KMRoute() {
     legendLineColor: '#dc2626',
     legendLineBorder: '#991b1b',
     legendLineLabel: '10KM route (red path + arrows)',
-    legendHydrationLabel: 'Hydration (PH Navy · Gen. Luna)',
+    legendHydrationLabel: 'Hydration (PH Navy · Gen. Luna–Finance)',
     meta: [
       { label: 'VENUE', value: 'Quirino Grandstand' },
       { label: 'START', value: 'KM 0' },
-      { label: 'U-TURNS', value: 'P. Ocampo · Finance Rd' },
+      { label: 'U-TURNS', value: 'P. Ocampo · Finance · Anda' },
       { label: 'HYDRATION', value: 'PH Navy · Gen. Luna' }
     ],
     guideGroups: [
       {
-        heading: 'A. STARTING POINT: KM 0 – QUIRINO GRANDSTAND',
+        heading: 'A. KM 0 – ROXAS BOULEVARD – P. OCAMPO U-TURN',
         items: [
-          { checkpoint: 'step1', badge: '1', type: 'step', text: 'Start at KM 0, Quirino Grandstand.', meta: '0.00 km · Roxas Blvd Southbound' },
-          { checkpoint: 'step2', badge: '2', type: 'step', text: 'Proceed straight along Roxas Boulevard, southbound.', meta: `0.00 – ${fmtKm(distStep3)} · Bay-side lanes` },
-          { checkpoint: 'hydPhNavy', badge: '💧', type: 'hydration', text: 'Hydration Station — PH Navy (by P. Ocampo).', meta: `${fmtKm(distHydPhNavy)} · Southbound water stop` },
-          { checkpoint: 'step3', badge: '3', type: 'step', text: 'Make a U-turn towards P. Ocampo Street.', meta: `${fmtKm(distStep3)} · 180° turn to Northbound` },
-          { checkpoint: 'step4', badge: '4', type: 'step', text: 'Proceed straight along Roxas Boulevard, northbound.', meta: `${fmtKm(distStep3)} – ${fmtKm(distStep5)} · Past Rizal Park` }
+          stepItem(1, 'START: From KM 0, Quirino Grandstand, Luneta Park.'),
+          stepItem(2, 'Proceed straight ahead along Roxas Boulevard Southbound.'),
+          { checkpoint: 'hydPhNavy', badge: '💧', type: 'hydration', text: 'Hydration Station — PH Navy (by P. Ocampo).', meta: `${fmtKm('hydPhNavy')} · Southbound water stop` },
+          stepItem(3, 'Make a U-turn at Pablo Ocampo Street.'),
+          stepItem(4, 'Proceed straight ahead along Roxas Boulevard Northbound.')
         ]
       },
       {
-        heading: 'B. PADRE BURGOS – FINANCE ROAD U-TURN',
+        heading: 'B. PADRE BURGOS – FINANCE RD U-TURN – INTRAMUROS LOOP',
         items: [
-          { checkpoint: 'step5', badge: '5', type: 'step', text: 'Turn right to Padre Burgos Avenue.', meta: `${fmtKm(distStep5)} · North end of Rizal Park` },
-          { checkpoint: 'step6', badge: '6', type: 'step', text: 'Proceed straight along Padre Burgos Avenue towards Finance Road.', meta: `${fmtKm(distStep5)} – ${fmtKm(distStep7)} · Past Intramuros` },
-          { checkpoint: 'hydGenLuna', badge: '💧', type: 'hydration', text: 'Hydration Station — Gen. Luna–Finance.', meta: `${fmtKm(distHydGenLuna)} · Padre Burgos / Gen. Luna` },
-          { checkpoint: 'step7', badge: '7', type: 'step', text: 'Bear right onto Finance Road.', meta: `${fmtKm(distStep7)} · Past National Museum` },
-          { checkpoint: 'step8', badge: '8', type: 'step', text: 'Make a U-turn on Finance Road.', meta: `${fmtKm(distStep8)} · Just short of Taft Ave` }
+          stepItem(5, 'Turn right to Padre Burgos Avenue.'),
+          { checkpoint: 'hydGenLuna', badge: '💧', type: 'hydration', text: 'Hydration Station — Gen. Luna–Finance.', meta: `${fmtKm('hydGenLuna')} · Padre Burgos / Gen. Luna` },
+          stepItem(6, 'Make a U-turn at Finance Road / Padre Burgos Avenue.'),
+          stepItem(7, 'Turn right to General Luna Street.'),
+          stepItem(8, 'Turn right to Muralla Street.'),
+          stepItem(9, 'Turn left to Andres Soriano Avenue.'),
+          stepItem(10, 'Turn left to General Luna Street.'),
+          stepItem(11, 'Proceed straight ahead towards Padre Burgos Avenue.'),
+          stepItem(12, 'Turn right to Padre Burgos Avenue.')
         ]
       },
       {
-        heading: 'C. FINAL RETURN TO QUIRINO GRANDSTAND',
+        heading: 'C. BONIFACIO DRIVE – ANDA CIRCLE U-TURN – FINISH',
         items: [
-          { checkpoint: 'step9', badge: '9', type: 'step', text: 'Proceed back to Padre Burgos Avenue towards Roxas Boulevard.', meta: `${fmtKm(distStep9)} · Westbound return` },
-          { checkpoint: 'step10', badge: '10', type: 'step', text: 'Proceed straight along Padre Burgos Avenue to Roxas Boulevard.', meta: `${fmtKm(distStep10)} · Along Intramuros` },
-          { checkpoint: 'step11', badge: '11', type: 'step', text: 'Turn left to Katigbak Drive and proceed to the FINISH LINE at Quirino Grandstand.', meta: `${fmtKm(distStep11)} – 10.00 km · Katigbak Dr & Parade Ground` },
-          { checkpoint: 'finish', badge: '🏁', type: 'finish', text: 'FINISH LINE – QUIRINO GRANDSTAND', meta: '10.00 km · Katigbak Dr · Quirino Grandstand' }
+          stepItem(13, 'Turn right to Bonifacio Drive.'),
+          stepItem(14, 'Proceed straight ahead towards Anda Circle.'),
+          stepItem(15, 'Make a U-turn at Anda Circle.'),
+          stepItem(16, 'Proceed straight ahead along Roxas Boulevard towards Katigbak Drive.'),
+          stepItem(17, 'Turn right to Katigbak Drive.'),
+          { checkpoint: 'finish', badge: '18', type: 'finish', text: 'FINISH LINE: Quirino Grandstand, Luneta Park, Manila.', meta: '10.00 km · Katigbak Dr · Quirino Grandstand' }
         ]
       }
     ],
     scrubberTicks: [
       { pct: 0, cls: 'tick-start', title: 'KM 0 Start' },
-      { pct: (distHydPhNavy / totalLength) * 100, cls: 'tick-hyd', title: 'PH Navy Hydration' },
-      { pct: (distStep3 / totalLength) * 100, cls: 'tick-uturn', title: 'P. Ocampo U-Turn' },
-      { pct: (distStep5 / totalLength) * 100, cls: 'tick-turn', title: 'Right to Padre Burgos Ave' },
-      { pct: (distHydGenLuna / totalLength) * 100, cls: 'tick-hyd', title: 'Gen. Luna–Finance Hydration' },
-      { pct: (distStep8 / totalLength) * 100, cls: 'tick-uturn', title: '10KM Finance Rd U-Turn' },
-      { pct: (distStep11 / totalLength) * 100, cls: 'tick-turn', title: 'Katigbak Dr to Finish' },
+      { pct: (tagDistances.hydPhNavy / totalLength) * 100, cls: 'tick-hyd', title: 'PH Navy Hydration' },
+      { pct: (tagDistances.step3 / totalLength) * 100, cls: 'tick-uturn', title: '1st U-Turn · P. Ocampo' },
+      { pct: (tagDistances.hydGenLuna / totalLength) * 100, cls: 'tick-hyd', title: 'Gen. Luna–Finance Hydration' },
+      { pct: (tagDistances.step6 / totalLength) * 100, cls: 'tick-uturn', title: '2nd U-Turn · Finance Rd' },
+      { pct: (tagDistances.step9 / totalLength) * 100, cls: 'tick-turn', title: 'Intramuros · Andres Soriano' },
+      { pct: (tagDistances.step15 / totalLength) * 100, cls: 'tick-uturn', title: 'U-Turn · Anda Circle' },
       { pct: 100, cls: 'tick-finish', title: 'Quirino Grandstand Finish (10.0 KM)' }
     ],
     minimapDots: [
@@ -332,21 +294,22 @@ function build10KMRoute() {
       { id: 'hydPhNavy', color: '#0284c7' },
       { id: 'step3', color: '#0f172a' },
       { id: 'hydGenLuna', color: '#0284c7' },
-      { id: 'step8', color: '#0f172a' },
+      { id: 'step6', color: '#0f172a' },
+      { id: 'step15', color: '#0f172a' },
       { id: 'finish', color: '#dc2626' }
     ],
     mapOverview: {
-      center: toWorld(720, 190, 0),
-      height: 2950,
-      zOffset: 760
+      center: toWorld(460, 140, 0),
+      height: 3650,
+      zOffset: 840
     },
     financeMeta: {
       uturnCenter: finUturnCenter,
       dirOut: DIR_FIN_OUT,
       dirLeft: DIR_FIN_LEFT,
       forkOutStart: pForkOutStart,
-      finOutStart: pFinOutStart,
-      finUturnEntry: pFinUturnEntry,
+      finOutStart,
+      finUturnEntry,
       angleRad: finAngleRad
     },
     segments: cumSegments,

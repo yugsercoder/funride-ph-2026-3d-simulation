@@ -450,9 +450,10 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   // 4C. 21KM Manila Heritage Landmarks: Jones Bridge, Binondo-Intramuros Bridge,
   //     Binondo Church, Anda Circle Monument & Intramuros/Binondo Paved Roadbed
   // ---------------------------------------------------------------------------
-  // Crisp 18m-wide dark asphalt roadbed at y = +0.085 (cleanly ABOVE land 0.00, river 0.03, and golf grass 0.035!)
+  // Crisp 18m-wide dark asphalt roadbeds for the 10KM & 21KM Intramuros / Binondo loops
+  const loop10Roadbed = buildRouteRibbon(ROUTE_10KM.densePoints, 18.0, 0.085, 0x3b4252);
   const loop21Roadbed = buildRouteRibbon(ROUTE_21KM.densePoints, 18.0, 0.085, 0x3b4252);
-  envGroup.add(loop21Roadbed);
+  envGroup.add(loop10Roadbed, loop21Roadbed);
 
   // Helper to build a clean 26m-wide bridge spanning between two points across Pasig River
   // Deck top surface sits at y = +0.12 (cleanly ABOVE Pasig River +0.03 & roadbed +0.085, BELOW route ribbon +0.23!)
@@ -686,6 +687,7 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   // ---------------------------------------------------------------------------
   function setActiveRoute(route) {
     roads10kGroup.visible = route.id === '10km';
+    loop10Roadbed.visible = route.id === '10km';
     loop21Roadbed.visible = route.id === '21km';
     while (routeOverlayGroup.children.length > 0) {
       const child = routeOverlayGroup.children.pop();
