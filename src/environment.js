@@ -211,20 +211,20 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   roads10kGroup.add(padreBurgosRoad);
 
   const pbMed1 = makeRoxasBox(2.6, 0.22, 540, medianMat, S_KATIGBAK, 310, 0.11);
-  const pbMed2 = makeRoxasBox(2.6, 0.22, 95, medianMat, S_KATIGBAK, PB_GEN_LUNA_OFFSET + 62, 0.11);
+  const pbMed2 = makeRoxasBox(2.6, 0.22, 48, medianMat, S_KATIGBAK, PB_GEN_LUNA_OFFSET + 46, 0.11);
   roads10kGroup.add(pbMed1, pbMed2);
 
   // Finance Road (forking 18° right from Padre Burgos Ave toward Taft Ave)
   const finMeta = ROUTE_10KM.financeMeta;
   const finAngleRad = THREE.MathUtils.degToRad(FINANCE_ANGLE_DEG);
   const finRoadYaw = ROXAS_ANGLE_RAD - finAngleRad;
-  const finMidDist = FINANCE_LEN * 0.5 + 35;
+  const finLenActual = FINANCE_LEN * 0.72;
   const finCenter = finMeta.finOutStart
     .clone()
     .addScaledVector(finMeta.dirLeft, 7.5)
-    .addScaledVector(finMeta.dirOut, finMidDist - 40);
+    .addScaledVector(finMeta.dirOut, finLenActual * 0.5);
   const financeRoad = new THREE.Mesh(
-    new THREE.BoxGeometry(FINANCE_LEN + 155, 0.095, 30),
+    new THREE.BoxGeometry(finLenActual + 95, 0.095, 32),
     asphaltMat
   );
   financeRoad.position.set(finCenter.x, 0.045, finCenter.z);
@@ -233,17 +233,17 @@ export function buildEnvironment(scene, initialRoute = ROUTE_5KM) {
   roads10kGroup.add(financeRoad);
 
   const finApron = new THREE.Mesh(
-    new THREE.CylinderGeometry(18, 18, 0.095, 24),
+    new THREE.CylinderGeometry(19, 19, 0.095, 24),
     asphaltMat
   );
   finApron.position.set(finMeta.uturnCenter.x, 0.045, finMeta.uturnCenter.z);
   roads10kGroup.add(finApron);
 
-  const finMedLen = FINANCE_LEN - 55;
+  const finMedLen = finLenActual - 60;
   const finMedCenter = finMeta.finOutStart
     .clone()
     .addScaledVector(finMeta.dirLeft, 7.5)
-    .addScaledVector(finMeta.dirOut, finMedLen * 0.5 + 10);
+    .addScaledVector(finMeta.dirOut, finMedLen * 0.5 + 24);
   const finMedian = new THREE.Mesh(
     new THREE.BoxGeometry(finMedLen, 0.22, 2.4),
     medianMat

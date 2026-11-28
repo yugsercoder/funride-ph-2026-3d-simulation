@@ -55,13 +55,15 @@ function build10KMRoute() {
   const DIR_FIN_LEFT = DIR_NB.clone().applyAxisAngle(up, -finAngleRad).normalize();
 
   // Finance Road U-turn geometry (2ND U-TURN · FINANCE RD)
+  // Exact parallel outbound (+7.5m) & return (-7.5m) lanes staying cleanly on their own carriageways!
   const pForkOutStart = toWorld(PB_LANE_OUT_S, PB_FORK_OFFSET);
-  const finOutStart = pForkOutStart.clone().addScaledVector(DIR_FIN_OUT, 25);
+  const finOutStart = pForkOutStart.clone().addScaledVector(DIR_FIN_OUT, 20);
   const finUturnEntry = finOutStart.clone().addScaledVector(DIR_FIN_OUT, FINANCE_LEN * 0.72);
-  const finHalfW = (PB_LANE_OUT_S - PB_LANE_RET_S) * 0.5; // 7.5m
+  const finHalfW = (PB_LANE_OUT_S - PB_LANE_RET_S) * 0.5; // 7.5m (15m lane-to-lane separation)
   const finUturnCenter = finUturnEntry.clone().addScaledVector(DIR_FIN_LEFT, finHalfW);
   const finUturnApex = finUturnCenter.clone().addScaledVector(DIR_FIN_OUT, finHalfW);
   const finRetStart = finUturnEntry.clone().addScaledVector(DIR_FIN_LEFT, finHalfW * 2);
+  const finRetFork = finOutStart.clone().addScaledVector(DIR_FIN_LEFT, finHalfW * 2);
 
   const waypoints = [
     // --- SECTION A: KM 0 -> Roxas Blvd SB -> P. Ocampo 1st U-Turn -> Roxas Blvd NB ---
@@ -78,13 +80,14 @@ function build10KMRoute() {
     // Step 5: Right turn onto Padre Burgos Ave
     { pos: toWorld(PB_LANE_OUT_S, LANE_OFFSET_NB), radius: 18, tag: 'step5' },
     { pos: toWorld(PB_LANE_OUT_S, PB_GEN_LUNA_OFFSET), radius: 16, tag: 'hydGenLuna' },
-    { pos: pForkOutStart, radius: 45 },
+    { pos: pForkOutStart, radius: 32 },
     // Step 6: 2ND U-TURN · FINANCE RD
     { pos: finUturnEntry, radius: 7.5 },
     { pos: finUturnApex, radius: 7.5, tag: 'step6' },
     { pos: finRetStart, radius: 7.5 },
-    // Return west along Padre Burgos to Gen. Luna St entrance into Intramuros
-    { pos: toWorld(PB_LANE_RET_S, PB_FORK_OFFSET - 30), radius: 36 },
+    // Return cleanly along northern Finance Rd lane -> northern Padre Burgos lane (NEVER crossing median!)
+    { pos: finRetFork, radius: 32 },
+    { pos: toWorld(PB_LANE_RET_S, PB_FORK_OFFSET - 10), radius: 24 },
     { pos: toWorld(PB_LANE_RET_S, 540), radius: 18, tag: 'step7' },
     // Step 7-8: Right onto General Luna St -> Right onto Muralla St (northbound inside Intramuros)
     { pos: toWorld(-430, 455), radius: 18, tag: 'step8' },
